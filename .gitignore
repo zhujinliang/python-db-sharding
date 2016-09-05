@@ -89,3 +89,6 @@ ENV/
 .ropeproject
 .idea/
 .idea
+core/configs/develop.py
+core/config/product.py
+

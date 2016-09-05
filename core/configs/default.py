@@ -19,5 +19,7 @@ class Config(object):
         'coupon_db': 'mysql://dev_w:6nvjq0_HW@192.168.1.250:3307/coupon_service_db',
     }
 
+    SHARDING_NUM = 10
+
 
 config = Config()

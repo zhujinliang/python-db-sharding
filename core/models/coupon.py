@@ -1,70 +1,64 @@
 # -*- coding:utf-8 -*-
 
-import json
 import time
 
-from sqlalchemy import or_, and_, func
-
 from core import db
-from core.commons import enum
-from coupon_base import CouponBaseModel
-from coupon_service.const import COUPON_STATUS_EXPIRED
-from coupon_service.const import COUPON_STATUS_USED
-from coupon_service.const import COUPON_STATUS_USING
-from coupon_service.const import COUPON_STATUS_NOT_USED
-from coupon_service.const import MEMBER_TYPE_BANK_DEPOSIT
-from coupon_service.const import MEMBER_TYPE_PLATFORM
-from coupon_service.const import MEMBER_TYPE_SUPPLIER
-from coupon_service.const import MEMBER_TYPE_TRANSPORTER
-from coupon_service.const import MEMBER_TYPE_OUT_DEPOSIT
-from coupon_service.const import MEMBER_TYPE_JD_USER
-from coupon_service.const import MEMBER_TYPE_DAOJIA_SUPPLIER
+from .base import BaseShardingModel
 
 
-__all__ = ["TipCoupon"]
+__all__ = ["Coupon"]
 
 
-class Coupon(CouponBaseModel):
+class Coupon(BaseShardingModel):
+    """
+    Coupon model with table sharding.
+    """
     __tablename__ = 'tip_coupon'
-    __bind_key__ = "coupon_service_db"
+    __bind_key__ = "coupon_db"
     __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8"}
 
     _mapper = {}
 
-    MEMBER_TYPE = enum(TRANSPORTER=MEMBER_TYPE_TRANSPORTER,
-                       SUPPLIER=MEMBER_TYPE_SUPPLIER,
-                       PLATFORM=MEMBER_TYPE_PLATFORM,
-                       BANK_DEPOSIT=MEMBER_TYPE_BANK_DEPOSIT,
-                       OUT_DEPOSIT=MEMBER_TYPE_OUT_DEPOSIT,
-                       DAOJIA_SUPPLIER=MEMBER_TYPE_DAOJIA_SUPPLIER,
-                       JD_USER=MEMBER_TYPE_JD_USER)
-    STATUS = enum(NOT_USED=COUPON_STATUS_NOT_USED,
-                  USING=COUPON_STATUS_USING,
-                  USED=COUPON_STATUS_USED,
-                  EXPIRED=COUPON_STATUS_EXPIRED)
-    EXPIRED_TYPE = enum(NOT_EXPIRED=1, START_END_TIME=2)
     id = db.Column(db.BigInteger, primary_key=True, nullable=False)
-    # 优惠券id
     coupon_id = db.Column(db.BigInteger, nullable=False, default=0)
-    rule_id = db.Column(db.BigInteger, nullable=False, default=0)
-    # 优惠描述
-    desc = db.Column(db.String(128), nullable=False, default="")
-    # 优惠标题
-    content = db.Column(db.String(32), nullable=False, default="")
-    # 用户类型
-    member_type = db.Column(db.Integer, nullable=False, default=0)
-    # 用户id
     member_id = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.Integer, nullable=False, default=0)
-    amount = db.Column(db.Float, nullable=False, default=0)
-    expired_type = db.Column(db.Integer, nullable=False, default=0)
-    # 开始时间
     start_time = db.Column(db.BigInteger, nullable=False, default=0)
-    # 结束时间
     end_time = db.Column(db.BigInteger, nullable=False, default=0)
-    # 发放时间
-    give_time = db.Column(db.BigInteger, nullable=False, default=0)
     create_time = db.Column(db.BigInteger, nullable=False, default=0)
-    modify_time = db.Column(db.BigInteger, nullable=False, default=0)
-    # 优惠券使用规则
-    rule = db.Column(db.String(2048), nullable=False, default="")
+
+    @staticmethod
+    def get_property_list():
+        return ['coupon_id', 'member_id', 'status', 'start_time', 'end_time',
+                'create_time']
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'couponId': self.coupon_id,
+            'memberId': self.member_id,
+            'status': self.status,
+            'startTime': self.start_time,
+            'endTime': self.end_time,
+            'createTime': self.create_time
+        }
+
+    @classmethod
+    def create_coupon(cls, **kwargs):
+        member_id = kwargs.get("member_id")
+        model = cls.rehash(member_id)
+        now = time.time()
+        kwargs['create_time'] = now
+        kwargs['status'] = 0
+        coupon = model()
+        for key in cls.get_property_list():
+            setattr(coupon, key, kwargs.get(key))
+        db.session.add(coupon)
+        db.session.commit()
+
+    @classmethod
+    def get_member_coupon(cls, member_id):
+        model = cls.rehash(member_id)
+        coupons = model.query.filter_by(member_id=member_id).all()
+
+        return coupons

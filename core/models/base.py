@@ -5,6 +5,9 @@ from core import db
 
 
 class BaseShardingModel(object):
+    __tablename__ = ''
+    __bind_key__ = ''
+    __table_args__ = ''
     _mapper = {}
 
     @classmethod
